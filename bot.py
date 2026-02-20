@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 import boto3
+from botocore.config import Config
 import os
 from dotenv import load_dotenv
 
@@ -15,9 +16,9 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 # 智能读取代理配置：
-# 如果 .env 中有 DISCORD_PROXY，它会读取到 "socks5h://127.0.0.1:40000"
+# 如果 .env 中有 GCP_PROXY，它会读取到 "socks5h://127.0.0.1:40000"
 # 如果 .env 中没有这个变量（比如在你本地 Mac 上），它会获取到 None
-proxy_url = os.getenv('DISCORD_PROXY')
+proxy_url = os.getenv('GCP_PROXY')
 
 # 初始化 Discord Bot
 bot = commands.Bot(
@@ -26,12 +27,23 @@ bot = commands.Bot(
     proxy=proxy_url  # 当 proxy=None 时，discord.py 会自动选择直连
 )
 
+# 为AWS配置代理
+boto_config = Config()
+if proxy_url:
+    boto_config = Config(
+        proxies={
+            'http': proxy_url,
+            'https': proxy_url
+        }
+    )
+
 # 初始化 AWS DynamoDB 客户端
 dynamodb = boto3.resource(
     'dynamodb',
     aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
     aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
-    region_name=os.getenv('AWS_REGION') # 例如 'us-east-1'
+    region_name=os.getenv('AWS_REGION'),
+    config=boto_config
 )
 table = dynamodb.Table(os.getenv('DYNAMODB_TABLE_NAME'))
 
