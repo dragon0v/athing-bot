@@ -4,10 +4,27 @@ import boto3
 import os
 from dotenv import load_dotenv
 
-import datetime
+from datetime import datetime, timezone
+import logging
 
+####### CONFIGURATIONS ######
 # 加载环境变量
 load_dotenv()
+
+intents = discord.Intents.default()
+intents.message_content = True
+
+# 智能读取代理配置：
+# 如果 .env 中有 DISCORD_PROXY，它会读取到 "socks5h://127.0.0.1:40000"
+# 如果 .env 中没有这个变量（比如在你本地 Mac 上），它会获取到 None
+proxy_url = os.getenv('DISCORD_PROXY')
+
+# 初始化 Discord Bot
+bot = commands.Bot(
+    command_prefix='!', 
+    intents=intents,
+    proxy=proxy_url  # 当 proxy=None 时，discord.py 会自动选择直连
+)
 
 # 初始化 AWS DynamoDB 客户端
 dynamodb = boto3.resource(
@@ -18,14 +35,24 @@ dynamodb = boto3.resource(
 )
 table = dynamodb.Table(os.getenv('DYNAMODB_TABLE_NAME'))
 
-# 初始化 Discord Bot
-intents = discord.Intents.default()
-intents.message_content = True
-bot = commands.Bot(command_prefix='!', intents=intents)
+# 配置日志格式
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s UTC | %(levelname)s | %(message)s'
+)
+# 强制 logging 使用 UTC 时间
+logging.Formatter.converter = lambda *args: datetime.now(timezone.utc).timetuple()
+
+
+###### BOT FUNCTIONS ######
+
+@bot.event
+async def on_command(ctx):
+    logging.info(f"收到指令: {ctx.command.name} | 发送者: {ctx.author}")
 
 @bot.event
 async def on_ready():
-    print(f'登录成功！机器人: {bot.user}')
+    logging.info(f'登录成功！机器人: {bot.user}')
 
 # 用于测试的hello指令 !hello
 @bot.command(name='hello')
@@ -34,7 +61,7 @@ async def hello_command(ctx):
     discord_user_id = ctx.author.id
     
     # 2. 获取当前时间 (格式化为 年-月-日 时:分:秒)
-    current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     # 发送提示信息，防止查询时间过长导致用户以为机器人卡死了
     status_msg = await ctx.send("正在统计 DynamoDB 数据，请稍候...")
