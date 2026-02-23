@@ -96,7 +96,9 @@ async def hello_command(ctx):
         await status_msg.edit(content=reply_message)
         
     except Exception as e:
+        logging.error(e)
         await status_msg.edit(content=f"⚠️ 查询数据库时发生错误: {str(e)}")
 
 # 运行机器人
-bot.run(os.getenv('DISCORD_TOKEN'))
+if __name__ == '__main__':
+    bot.run(os.getenv('DISCORD_TOKEN'))
