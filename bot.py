@@ -80,6 +80,13 @@ async def on_command(ctx):
 @bot.event
 async def on_ready():
     logging.info(f'登录成功！机器人: {bot.user}')
+    try:
+        # 同步斜杠指令到 Discord 服务器
+        synced = await bot.tree.sync()
+        logging.info(f"✅ 成功同步了 {len(synced)} 个斜杠指令。")
+    except Exception as e:
+        logging.error(f"❌ 同步斜杠指令失败: {e}")
+        
 
 # 用于测试的hello指令 !hello
 @bot.command(name='hello')
