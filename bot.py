@@ -59,8 +59,9 @@ table = dynamodb.Table(os.getenv('DYNAMODB_TABLE_NAME'))
 # 初始化 Gemini API
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
 
-# 选择模型，推荐使用 gemini-1.5-flash 或 gemini-2.5-flash，速度快且便宜/免费
-model = genai.GenerativeModel('gemini-2.5-flash')
+# 选择模型，默认使用 gemini-3-flash
+current_model_name = 'gemini-3-flash'
+model = genai.GenerativeModel(current_model_name)
 
 # 配置日志格式
 logging.basicConfig(
@@ -86,7 +87,7 @@ async def on_ready():
         logging.info(f"✅ 成功同步了 {len(synced)} 个斜杠指令。")
     except Exception as e:
         logging.error(f"❌ 同步斜杠指令失败: {e}")
-        
+
 
 # 用于测试的hello指令 !hello
 @bot.command(name='hello')
@@ -174,6 +175,59 @@ async def ai_command(ctx, *, prompt: str):
             logging.error(f"AI 处理错误: {e}")
             # 如果发生错误，也要确保回复用户
             await ctx.send(f"⚠️ AI 处理出错: {str(e)}")
+
+# 切换ai模型
+@bot.hybrid_command(name='model', description="通过按钮点击快速切换 Gemini 模型")
+async def model_command(ctx):
+    # 实例化我们刚才写的按钮视图
+    view = ModelSelectView()
+    
+    # 发送包含按钮的消息
+    await ctx.send(
+        f"🤖 当前正在使用的模型是: `{current_model_name}`\n"
+        f"👇 请点击下方按钮切换您想要的 AI 模型：",
+        view=view
+    )
+
+# 定义一个包含切换模型按钮的 UI 视图
+# 定义一个包含 4 个模型按钮的 UI 视图
+class ModelSelectView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=60)
+
+    # 【新增】抽取公共的切换逻辑，避免代码重复
+    async def switch_model(self, interaction: discord.Interaction, new_model_name: str):
+        global model, current_model_name
+        current_model_name = new_model_name
+        model = genai.GenerativeModel(current_model_name)
+        
+        logging.info(f"模型切换为: {current_model_name}")
+        # 更新消息内容并移除按钮 (view=None)
+        await interaction.response.edit_message(
+            content=f"✅ 成功切换至模型: `{current_model_name}`\n接下来的对话将由该模型处理！", 
+            view=None
+        )
+
+    # 按钮 1：第一行 (row=0)
+    @discord.ui.button(label="Gemini 3 Flash (20次/天，默认)", style=discord.ButtonStyle.green, row=0)
+    async def btn_25_flash(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.switch_model(interaction, 'gemini-3-flash-preview')
+
+    # 按钮 2：第一行 (row=0)
+    @discord.ui.button(label="Gemini 2.5 Flash (20次/天)", style=discord.ButtonStyle.green, row=0)
+    async def btn_25_pro(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.switch_model(interaction, 'gemini-2.5-flash')
+
+    # 按钮 3
+    @discord.ui.button(label="Gemini 3.1 Flash Lite (500次/天)", style=discord.ButtonStyle.secondary, row=0)
+    async def btn_15_flash(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.switch_model(interaction, 'gemini-3.1-flash-lite-preview')
+
+        
+    # 处理超时情况（如果 60 秒没人点，按键自动失效）
+    async def on_timeout(self):
+        for child in self.children:
+            child.disabled = True
 
 # 运行机器人
 if __name__ == '__main__':
