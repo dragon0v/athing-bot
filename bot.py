@@ -22,6 +22,12 @@ intents.message_content = True
 # 如果 .env 中没有这个变量（比如在你本地 Mac 上），它会获取到 None
 proxy_url = os.getenv('GCP_PROXY')
 
+# 在 GCP 上抹除系统代理，强制 AWS 和 Gemini 走原生 IPv6 直连！
+if proxy_url:
+    for key in ['http_proxy', 'https_proxy', 'HTTP_PROXY', 'HTTPS_PROXY', 'all_proxy', 'ALL_PROXY']:
+        if key in os.environ:
+            del os.environ[key]
+
 # 初始化 Discord Bot
 bot = commands.Bot(
     command_prefix='!', 
@@ -31,6 +37,7 @@ bot = commands.Bot(
 
 # 为AWS配置代理
 if proxy_url:
+    os.environ['no_proxy'] = "amazonaws.com"
     # 处于 GCP 服务器环境：
     # 告诉 AWS 开启双栈模式，这样它就会自动找到并使用 GCP 的 IPv6 网络进行高速直连
     boto_config = Config(use_dualstack_endpoint=True)
