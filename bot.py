@@ -30,14 +30,14 @@ bot = commands.Bot(
 )
 
 # 为AWS配置代理
-boto_config = Config()
 if proxy_url:
-    boto_config = Config(
-        proxies={
-            'http': proxy_url,
-            'https': proxy_url
-        }
-    )
+    # 处于 GCP 服务器环境：
+    # 告诉 AWS 开启双栈模式，这样它就会自动找到并使用 GCP 的 IPv6 网络进行高速直连
+    boto_config = Config(use_dualstack_endpoint=True)
+else:
+    # 处于本地开发环境：
+    # 使用默认配置即可
+    boto_config = Config()
 
 # 初始化 AWS DynamoDB 客户端
 dynamodb = boto3.resource(
@@ -144,7 +144,8 @@ async def ai_command(ctx, *, prompt: str):
             )
             
             # 4. 调用 Gemini API 生成回答
-            ai_response = model.generate_content(full_prompt)
+            # 使用异步等待避免discord机器人heartbeat发送失败
+            ai_response = await model.generate_content_async(full_prompt)
             reply_text = ai_response.text
             
             # 5. Discord 单条消息最多 2000 个字符的限制处理
@@ -156,6 +157,7 @@ async def ai_command(ctx, *, prompt: str):
             await ctx.send(f"{reply_text}")
             
         except Exception as e:
+            logging.error(f"AI 处理错误: {e}")
             # 如果发生错误，也要确保回复用户
             await ctx.send(f"⚠️ AI 处理出错: {str(e)}")
 
