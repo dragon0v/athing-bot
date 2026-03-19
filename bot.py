@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import logging
 
 ####### CONFIGURATIONS ######
@@ -135,6 +136,7 @@ async def ai_command(ctx, *, prompt: str):
             
             # 3. 构造给 Gemini 的终极 Prompt (System Prompt + 数据库内容 + 用户问题)
             full_prompt = (
+                "当前时间：" + datetime.now(ZoneInfo("Europe/Stockholm")).strftime("%Y-%m-%d %H:%M:%S") + " \n"
                 "你是一个聪明的私人助理。以下是我的 DynamoDB 数据库中的所有记录数据：\n"
                 f"```json\n{db_context_text}\n```\n"
                 "请根据上述数据，准确地回答用户的提问。如果数据中找不到答案，请诚实地说明。用户如果用英语提问则用英语回答。\n\n"
